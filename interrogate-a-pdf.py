@@ -17,20 +17,18 @@ def run_llama(prompt, model_name="llama3"):
             messages=[{'role': 'user', 'content': prompt}]
         )
         return response['message']['content']
-    except ollama.Ollama.OllamaError as e:
-        # This will catch errors if Ollama is not running or the model is not found
-        st.error(f"Error: Could not connect to Ollama. Please ensure the server is running and the '{model_name}' model is available. Details: {e}")
+    except Exception as e:
+        st.error(f"Error: Could not connect to Ollama or model not found. Details: {e}")
         return None
 
 # --- PDF Processing Functions ---
 def extract_text_from_pdf(uploaded_file):
     """Extracts text from a PDF file."""
     text = ""
-    # Use tempfile to handle the uploaded file properly on all OS
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(uploaded_file.read())
         tmp_path = tmp.name
-    
+
     with pdfplumber.open(tmp_path) as pdf:
         for page in pdf.pages:
             page_text = page.extract_text()
@@ -43,12 +41,9 @@ def embed_text_chunks(text, chunk_size=500):
     chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
     model = SentenceTransformer("all-MiniLM-L6-v2")
     embeddings = model.encode(chunks)
-    
-    # Use numpy array for FAISS index
     embeddings = np.array(embeddings).astype('float32')
     index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
-    
     return model, chunks, index
 
 def retrieve_context(query, model, chunks, index, k=3):
